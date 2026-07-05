@@ -1,0 +1,340 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>商談チームレビュー — 月初ミーティング</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Zen+Old+Mincho:wght@500;700;900&family=Noto+Sans+JP:wght@400;500;700&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<style>
+  :root{
+    --ivory:#F4F0E6; --card:#FBF8F1; --navy:#1B2A4A; --navy2:#33456e;
+    --gold:#B0894A; --gold-soft:#d8bd86; --ink:#232935; --muted:#7c8291; --line:#e6dfce;
+  }
+  *{box-sizing:border-box;}
+  body{ font-family:"Noto Sans JP",sans-serif; margin:0; background:var(--ivory); color:var(--ink); }
+  .serif{ font-family:"Zen Old Mincho",serif; }
+  .topbar{ background:var(--navy); color:#f3efe4; padding:22px 32px; display:flex; justify-content:space-between; align-items:flex-end; gap:24px; flex-wrap:wrap; }
+  .topbar .eyebrow{ font-size:11px; letter-spacing:.28em; color:var(--gold-soft); text-transform:uppercase; }
+  .topbar h1{ font-family:"Zen Old Mincho",serif; font-weight:700; font-size:27px; margin:4px 0 2px; letter-spacing:.02em; }
+  .topbar .tagline{ font-size:12.5px; color:#c7cede; margin:0; max-width:52em; line-height:1.7; }
+  .yearbox{ font-size:12px; color:#c7cede; text-align:right; }
+  .yearbox select{ margin-top:6px; padding:7px 12px; border-radius:4px; border:1px solid var(--navy2); background:#22335a; color:#f3efe4; font-family:inherit; }
+  main{ padding:26px 32px 48px; max-width:1240px; margin:0 auto; }
+  #loadpanel{ background:var(--card); border:1px solid var(--line); border-radius:8px; padding:34px; text-align:center; }
+  #drop{ border:1.5px dashed var(--gold); border-radius:8px; padding:30px; color:var(--muted); cursor:pointer; background:#fff; }
+  #drop.dragover{ background:#faf4e6; color:var(--navy); }
+  #drop b{ color:var(--navy); font-family:"Zen Old Mincho",serif; }
+  #loadpanel .note{ color:var(--muted); font-size:12px; margin:14px 0 0; }
+  .crossbar{ display:none; gap:8px; align-items:center; margin:0 0 14px; font-size:13px; flex-wrap:wrap; }
+  .crossbar .chip{ background:var(--navy); color:#f3efe4; border-radius:999px; padding:5px 12px; font-size:12px; cursor:pointer; }
+  .hint{ color:var(--muted); font-size:12px; margin:2px 0 18px; }
+  .kpiband{ display:flex; background:var(--card); border:1px solid var(--line); border-radius:8px; overflow:hidden; margin-bottom:22px; flex-wrap:wrap; }
+  .kpiband .kpi{ flex:1; min-width:170px; padding:16px 22px; border-right:1px solid var(--line); }
+  .kpiband .kpi:last-child{ border-right:none; }
+  .kpiband .kpi.accent{ background:#f6f0e0; }
+  .kpi .label{ font-size:11px; letter-spacing:.06em; color:var(--muted); }
+  .kpi .value{ font-family:"Zen Old Mincho",serif; font-size:26px; font-weight:700; color:var(--navy); margin-top:6px; }
+  .kpi .delta{ font-size:12px; margin-left:7px; font-weight:700; }
+  .kpi .sub{ font-size:10.5px; color:var(--muted); margin-top:5px; }
+  .grid{ display:grid; gap:20px; }
+  .grid.two{ grid-template-columns:1.5fr 1fr; }
+  .grid.twoeq{ grid-template-columns:1fr 1fr; }
+  .panel{ background:var(--card); border:1px solid var(--line); border-radius:8px; padding:18px 20px; margin-bottom:20px; }
+  .panel h3{ font-family:"Zen Old Mincho",serif; font-size:15px; color:var(--navy); margin:0 0 4px; padding-left:11px; position:relative; }
+  .panel h3::before{ content:""; position:absolute; left:0; top:2px; bottom:2px; width:3px; background:var(--gold); border-radius:2px; }
+  .panel .desc{ font-size:11.5px; color:var(--muted); margin:0 0 14px; padding-left:11px; }
+  /* 得意分野マトリクス */
+  .matrix{ width:100%; border-collapse:collapse; font-size:12px; }
+  .matrix th,.matrix td{ padding:7px 9px; text-align:center; border-bottom:1px solid var(--line); }
+  .matrix thead th{ color:var(--navy); font-weight:700; cursor:pointer; white-space:nowrap; }
+  .matrix tbody th{ text-align:left; color:var(--navy); font-weight:700; cursor:pointer; white-space:nowrap; }
+  .matrix th.sel,.matrix td.selcol{ outline:2px solid var(--gold); }
+  .matrix .cell{ border-radius:4px; color:#fff; font-weight:700; }
+  .matrix .cell small{ display:block; font-weight:400; opacity:.85; font-size:10px; }
+  .matrix .empty{ color:var(--muted); }
+  .tablefilter{ display:flex; gap:16px; align-items:center; margin-bottom:10px; font-size:13px; color:var(--ink); flex-wrap:wrap; }
+  .tablefilter select{ padding:5px 8px; border-radius:6px; border:1px solid var(--line); background:#fff; }
+  .tablefilter .count{ color:var(--muted); }
+  table.detail{ width:100%; border-collapse:collapse; font-size:12px; }
+  table.detail th,table.detail td{ border-bottom:1px solid var(--line); padding:6px 8px; text-align:left; white-space:nowrap; }
+  table.detail thead th{ color:var(--navy); }
+  .hidden{ display:none; }
+  @media (max-width:860px){ .grid.two,.grid.twoeq{ grid-template-columns:1fr; } }
+</style>
+</head>
+<body>
+<header class="topbar">
+  <div>
+    <div class="eyebrow">Monthly Team Review</div>
+    <h1>商談チームレビュー</h1>
+  </div>
+  <div class="yearbox">
+    会計年度<br>
+    <select id="fyFilter">
+      <option value="all">全期間</option>
+      <option value="2024">FY2024</option>
+      <option value="2025">FY2025</option>
+      <option value="2026">FY2026(〜7月)</option>
+    </select>
+  </div>
+</header>
+
+<main>
+  <section id="loadpanel">
+    <div id="drop"><b>deals.csv</b> をここにドラッグ&ドロップ、または <input type="file" id="file" accept=".csv"></div>
+    <p class="note">HTMLをダブルクリックで開き、CSVを手動で読み込みます(ローカルサーバ不要)。</p>
+  </section>
+
+  <div id="dashboard" class="hidden">
+    <div class="crossbar" id="crossbar"></div>
+
+    <section class="kpiband">
+      <div class="kpi"><div class="label">最新月の商談数(前月比)</div><div class="value"><span id="kpiMonth">-</span><span class="delta" id="kpiMonthDelta"></span></div></div>
+      <div class="kpi accent"><div class="label">継続中(未完了)</div><div class="value" id="kpiOpen">-</div></div>
+      <div class="kpi"><div class="label">今年度 受注金額合計</div><div class="value" id="kpiWon">-</div></div>
+      <div class="kpi"><div class="label">受注率</div><div class="value" id="kpiWin">-</div></div>
+      <div class="kpi accent"><div class="label">翌月の商談数 予測(増減)</div><div class="value"><span id="kpiForecast">-</span><span class="delta" id="kpiForecastDelta"></span></div></div>
+    </section>
+
+    <div class="grid two">
+      <div class="panel"><h3>月別商談数と翌月予測</h3><canvas id="chartMonthly"></canvas></div>
+      <div class="panel"><h3>担当者別 未完了(継続)件数 — 負荷</h3><canvas id="chartWorkload"></canvas></div>
+    </div>
+
+    <div class="panel">
+      <h3>得意分野マトリクス — 担当者 × 業種の受注率</h3>
+      <div style="overflow:auto;"><table class="matrix" id="matrix"></table></div>
+    </div>
+
+    <div class="grid twoeq">
+      <div class="panel"><h3>ステージ別パイプライン金額</h3><canvas id="chartFunnel"></canvas></div>
+      <div class="panel"><h3>失注理由の内訳</h3><canvas id="chartLost"></canvas></div>
+    </div>
+
+    <div class="panel">
+      <h3>明細</h3>
+      <div class="tablefilter">
+        <label>営業担当 <select id="fRep"><option value="">すべて</option></select></label>
+        <label>状況 <select id="fStatus"><option value="">すべて</option></select></label>
+        <span class="count" id="tableCount"></span>
+      </div>
+      <div style="overflow:auto; max-height: 360px;"><table class="detail" id="table"></table></div>
+    </div>
+  </div>
+</main>
+
+<script>
+if (window.Chart) {
+  Chart.defaults.color = '#232935';
+  Chart.defaults.font.family = "'Noto Sans JP', sans-serif";
+}
+const NAVY = '#1B2A4A', NAVY2 = '#33456e', GOLD = '#B0894A', GOLD_SOFT = '#d8bd86', SLATE = '#9aa4b6';
+
+const drop = document.getElementById('drop');
+const fileInput = document.getElementById('file');
+const fyFilter = document.getElementById('fyFilter');
+let allRows = [];
+let charts = {};
+let activeFilters = {};
+const OPEN_STATUSES = ['進行中', '保留'];
+
+fileInput.addEventListener('change', e => { if (e.target.files[0]) parseFile(e.target.files[0]); });
+drop.addEventListener('dragover', e => { e.preventDefault(); drop.classList.add('dragover'); });
+drop.addEventListener('dragleave', () => drop.classList.remove('dragover'));
+drop.addEventListener('drop', e => {
+  e.preventDefault(); drop.classList.remove('dragover');
+  if (e.dataTransfer.files[0]) parseFile(e.dataTransfer.files[0]);
+});
+fyFilter.addEventListener('change', () => { if (allRows.length) render(); });
+document.getElementById('fRep').addEventListener('change', renderTable);
+document.getElementById('fStatus').addEventListener('change', renderTable);
+
+// パース結果を取り込んでダッシュボード描画(手動読み込み/自動読み込みで共有)
+function applyParsed(res){ allRows = res.data; activeFilters = {}; render(); }
+function parseFile(file) {
+  Papa.parse(file, {
+    header: true, skipEmptyLines: true,
+    transformHeader: h => h.replace(/^﻿/, ''),
+    complete: res => { applyParsed(res); document.getElementById('loadpanel').classList.add('hidden'); }
+  });
+}
+
+function fiscalYear(d){ const y=parseInt(d.slice(0,4),10), m=parseInt(d.slice(5,7),10); return m>=4?y:y-1; }
+function yen(n){ return '¥' + Math.round(n).toLocaleString('ja-JP'); }
+function addMonth(ym){ let y=parseInt(ym.slice(0,4),10), m=parseInt(ym.slice(5,7),10)+1; if(m>12){m=1;y++;} return `${y}-${String(m).padStart(2,'0')}`; }
+function subYear(ym){ return `${parseInt(ym.slice(0,4),10)-1}${ym.slice(4)}`; }
+function deltaBadge(cur, prev){ if(prev===0||prev==null) return ''; const d=Math.round((cur-prev)/prev*100), up=d>=0; return `<span style="color:${up?'#1a7f4b':'#b3402f'}">${up?'▲':'▼'}${Math.abs(d)}%</span>`; }
+function fillSelect(id, values){ const s=document.getElementById(id), c=s.value; s.innerHTML='<option value="">すべて</option>'+values.map(v=>`<option value="${v}">${v}</option>`).join(''); s.value=c; }
+
+function fyRows(){ const fy=fyFilter.value; return allRows.filter(r=> r["商談発生日"] && (fy==='all'||String(fiscalYear(r["商談発生日"]))===fy)); }
+function passesExcept(r, ex){ return Object.entries(activeFilters).every(([f,v])=> f===ex || String(r[f])===String(v)); }
+function rowsExcept(ex){ return fyRows().filter(r=>passesExcept(r,ex)); }
+function rowsAll(){ return fyRows().filter(r=>passesExcept(r,null)); }
+function toggleFilter(field, value){ if(activeFilters[field]===value) delete activeFilters[field]; else activeFilters[field]=value; render(); }
+function renderCrossbar(){
+  const el=document.getElementById('crossbar'), keys=Object.keys(activeFilters);
+  if(!keys.length){ el.style.display='none'; el.innerHTML=''; return; }
+  el.style.display='flex';
+  el.innerHTML='<span>絞り込み中:</span>'+keys.map(f=>`<span class="chip" data-f="${f}">${f} = ${activeFilters[f]} ✕</span>`).join('');
+  el.querySelectorAll('.chip').forEach(c=>c.onclick=()=>{ delete activeFilters[c.dataset.f]; render(); });
+}
+
+function countBy(rows, key){ const m={}; rows.forEach(r=>{const k=r[key]||'(空)'; m[k]=(m[k]||0)+1;}); return m; }
+function monthCounts(rows){ const m={}; rows.forEach(r=>{const k=(r["商談発生日"]||'').slice(0,7); if(k) m[k]=(m[k]||0)+1;}); return m; }
+
+function render(){
+  document.getElementById('dashboard').classList.remove('hidden');
+  renderCrossbar();
+  const filtered = rowsAll();
+
+  const won = filtered.filter(r=>r["ステータス"]==='受注').length;
+  const openRows = filtered.filter(r=>OPEN_STATUSES.includes(r["ステータス"]));
+  // 今年度(スコープ内で最新の会計年度)の受注金額合計(クローズ日基準)
+  const wonRows = filtered.filter(r=>r["ステータス"]==='受注' && r["クローズ日"]);
+  const latestFY = wonRows.length ? Math.max(...wonRows.map(r=>fiscalYear(r["クローズ日"]))) : null;
+  const wonAmt = wonRows.filter(r=>fiscalYear(r["クローズ日"])===latestFY).reduce((a,r)=>a+(parseInt(r["金額"],10)||0),0);
+  const bm = monthCounts(filtered);
+  const mk = Object.keys(bm).sort();
+  const latest=mk[mk.length-1], prev=mk[mk.length-2];
+  document.getElementById('kpiMonth').textContent = latest?bm[latest]:'-';
+  document.getElementById('kpiMonthDelta').innerHTML = deltaBadge(bm[latest]||0, bm[prev]||0);
+  document.getElementById('kpiWon').textContent = yen(wonAmt);
+  document.getElementById('kpiWin').textContent = filtered.length? Math.round(won/filtered.length*100)+'%':'-';
+  document.getElementById('kpiOpen').textContent = openRows.length;
+
+  const fc = forecastNextMonth(bm, mk);
+  const pred = fc.yoy!=null?fc.yoy:fc.ma;
+  document.getElementById('kpiForecast').textContent = pred!=null?pred:'-';
+  document.getElementById('kpiForecastDelta').innerHTML = (pred!=null&&latest)?deltaBadge(pred, bm[latest]):'';
+  drawMonthlyForecast('chartMonthly', mk, bm, fc);
+
+  // 担当者別 未完了(負荷)
+  const openBy = countBy(rowsExcept('営業担当').filter(r=>OPEN_STATUSES.includes(r["ステータス"])), '営業担当');
+  const wkKeys = Object.keys(openBy).sort((a,b)=>openBy[b]-openBy[a]);
+  drawClickBarH('chartWorkload', '未完了件数', wkKeys, wkKeys.map(k=>openBy[k]), '営業担当', k=>k, GOLD);
+
+  // 得意分野マトリクス(年度のみ反映、クロスフィルタは無視して全体像を保つ)
+  renderMatrix(fyRows());
+
+  // ステージ別ファネル(金額)
+  const funnel = {};
+  rowsExcept('ステージ').forEach(r=>{ const k=r["ステージ番号"]+':'+r["ステージ"]; funnel[k]=(funnel[k]||0)+(parseInt(r["金額"],10)||0); });
+  const fKeys = Object.keys(funnel).sort((a,b)=>parseInt(a)-parseInt(b));
+  drawClickBarH('chartFunnel', '金額', fKeys, fKeys.map(k=>funnel[k]), 'ステージ', k=>k.split(':')[1], NAVY2);
+
+  // 失注理由
+  const lost = countBy(rowsExcept('失注理由').filter(r=>r["ステータス"]==='失注'&&r["失注理由"]), '失注理由');
+  drawClickBar('chartLost', '失注件数', Object.keys(lost), Object.values(lost), '失注理由', NAVY);
+
+  fillSelect('fRep', [...new Set(allRows.map(r=>r["営業担当"]).filter(Boolean))].sort());
+  fillSelect('fStatus', [...new Set(allRows.map(r=>r["ステータス"]).filter(Boolean))]);
+  renderTable();
+}
+
+// 担当者 × 業種 の受注率マトリクス
+function renderMatrix(rows){
+  const reps = [...new Set(rows.map(r=>r["営業担当"]).filter(Boolean))].sort();
+  const inds = [...new Set(rows.map(r=>r["業種"]).filter(Boolean))].sort();
+  const stat = {};  // rep -> ind -> {won, lost}
+  rows.forEach(r=>{
+    const s=r["ステータス"]; if(s!=='受注'&&s!=='失注') return;
+    const rp=r["営業担当"], id=r["業種"];
+    (stat[rp]=stat[rp]||{}); (stat[rp][id]=stat[rp][id]||{won:0,lost:0});
+    if(s==='受注') stat[rp][id].won++; else stat[rp][id].lost++;
+  });
+  const selRep = activeFilters['営業担当'], selInd = activeFilters['業種'];
+  let html = '<thead><tr><th>担当\\業種</th>' +
+    inds.map(i=>`<th data-ind="${i}" class="${selInd===i?'sel':''}">${i}</th>`).join('') + '</tr></thead><tbody>';
+  reps.forEach(rp=>{
+    html += `<tr><th data-rep="${rp}" class="${selRep===rp?'sel':''}">${rp}</th>`;
+    inds.forEach(id=>{
+      const c = (stat[rp]||{})[id];
+      const closed = c ? c.won + c.lost : 0;
+      if(closed === 0){ html += '<td class="empty">–</td>'; return; }
+      const wr = Math.round(c.won/closed*100);
+      const bg = `rgba(27,42,74,${(0.12 + wr/100*0.78).toFixed(2)})`;
+      html += `<td><div class="cell" style="background:${bg}">${wr}%<small>${c.won}/${closed}</small></div></td>`;
+    });
+    html += '</tr>';
+  });
+  html += '</tbody>';
+  const el = document.getElementById('matrix');
+  el.innerHTML = html;
+  el.querySelectorAll('th[data-rep]').forEach(th=>th.onclick=()=>toggleFilter('営業担当', th.dataset.rep));
+  el.querySelectorAll('th[data-ind]').forEach(th=>th.onclick=()=>toggleFilter('業種', th.dataset.ind));
+}
+
+function forecastNextMonth(byMonth, monthKeys){
+  if(monthKeys.length<2) return { nextMonth:null, ma:null, yoy:null };
+  const latest=monthKeys[monthKeys.length-1];
+  const nextMonth=addMonth(latest);
+  const last3=monthKeys.slice(-3);
+  const ma=Math.round(last3.reduce((a,k)=>a+byMonth[k],0)/last3.length);
+  // 成長係数 = 今年度の判明月合計 ÷ 前年度の同じ月合計(件数を比較して導出)
+  const curFY=fiscalYear(latest);
+  const curMonths=monthKeys.filter(k=>fiscalYear(k)===curFY);
+  const thisSum=curMonths.reduce((a,k)=>a+(byMonth[k]||0),0);
+  const prevSum=curMonths.reduce((a,k)=>a+(byMonth[subYear(k)]||0),0);
+  const coef=prevSum>0?thisSum/prevSum:null;
+  const lastYearNext=byMonth[subYear(nextMonth)];
+  const yoy=(coef!=null&&lastYearNext!=null)?Math.round(lastYearNext*coef):null;
+  return { nextMonth, ma, yoy };
+}
+
+function renderTable(){
+  const fr=document.getElementById('fRep').value, fs=document.getElementById('fStatus').value;
+  const rows=rowsAll().filter(r=>(!fr||r["営業担当"]===fr)&&(!fs||r["ステータス"]===fs));
+  document.getElementById('tableCount').textContent=`該当 ${rows.length} 件(先頭50件表示)`;
+  if(!allRows.length) return;
+  const cols=Object.keys(allRows[0]);
+  document.getElementById('table').innerHTML =
+    '<thead><tr>'+cols.map(c=>`<th>${c}</th>`).join('')+'</tr></thead><tbody>'+
+    rows.slice(0,50).map(r=>'<tr>'+cols.map(c=>`<td>${r[c]??''}</td>`).join('')+'</tr>').join('')+'</tbody>';
+}
+
+function resetChart(id){ if(charts[id]) charts[id].destroy(); }
+function clickHandler(field, labels, valueOf){ return (e,els)=>{ if(els.length) toggleFilter(field, valueOf(labels[els[0].index])); }; }
+function drawMonthlyForecast(id, keys, map, fc){
+  resetChart(id);
+  const labels=keys.slice(), actual=keys.map(k=>map[k]);
+  let maS=keys.map(()=>null), yoyS=keys.map(()=>null);
+  if(fc.nextMonth){
+    labels.push(fc.nextMonth); actual.push(null);
+    maS=keys.map((k,i)=>i===keys.length-1?map[k]:null); maS.push(fc.ma);
+    yoyS=keys.map((k,i)=>i===keys.length-1?map[k]:null); yoyS.push(fc.yoy);
+  }
+  charts[id]=new Chart(document.getElementById(id),{ type:'line',
+    data:{ labels, datasets:[
+      { label:'実績', data:actual, borderColor:NAVY, backgroundColor:NAVY, tension:.3 },
+      { label:'予測(移動平均)', data:maS, borderColor:GOLD, borderDash:[6,4], pointStyle:'rectRot', tension:.1 },
+      { label:'予測(前年同月×係数)', data:yoyS, borderColor:'#7c8291', borderDash:[6,4], pointStyle:'triangle', tension:.1 },
+    ]}});
+}
+function drawClickBar(id, label, keys, values, field, color){
+  resetChart(id);
+  charts[id]=new Chart(document.getElementById(id),{ type:'bar',
+    data:{ labels:keys, datasets:[{ label, data:values,
+      backgroundColor:keys.map(k=>activeFilters[field]===k?GOLD:color) }] },
+    options:{ onClick:clickHandler(field, keys, k=>k) }});
+}
+function drawClickBarH(id, label, keys, values, field, valueOf, color){
+  resetChart(id);
+  charts[id]=new Chart(document.getElementById(id),{ type:'bar',
+    data:{ labels:keys, datasets:[{ label, data:values,
+      backgroundColor:keys.map(k=>activeFilters[field]===valueOf(k)?NAVY:color) }] },
+    options:{ indexAxis:'y', onClick:clickHandler(field, keys, valueOf) }});
+}
+
+// 初期表示: 同階層の deals.csv を自動読み込み(失敗時は手動ドロップ面板を残す)
+fetch('deals.csv')
+  .then(r => r.ok ? r.text() : Promise.reject(new Error('CSV not found')))
+  .then(text => Papa.parse(text, { header:true, skipEmptyLines:true, transformHeader:h=>h.replace(/^﻿/,''), complete:applyParsed }))
+  .catch(()=>{});
+
+</script>
+</body>
+</html>
